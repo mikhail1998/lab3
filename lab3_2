@@ -1,0 +1,347 @@
+import random as rand
+import math as mathf
+
+#класс ячейки лабиринта, ячейка имеет координаты и может
+#быть стеной или проходом (клеткой), посещённым или еще нет.
+class cell:
+    def __init__(self, i, j, isWall, visited):
+        self.i = i
+        self.j = j
+        self.isWall = isWall
+        self.visited = visited
+
+stack = [] #стек клеток лабиринта
+maze = []   #матрица ячеек лабиринта
+mazeHeight = 50 #высота лабиринта в ячейках
+mazeWidth = 50#ширина лабиринта в ячейках
+
+for i in range(mazeHeight): #заполненяем матрицу лабиринта нулями
+    maze.append([0]*mazeWidth)
+
+# Заполняем матрицу ячейками со следующим требованием:
+# изначально у каждой клетки есть стенки со всех четырех сторон,
+# которые отделяют ее от соседних клеток.
+height = len(maze)
+width = len(maze[0])
+for i in range(height):
+    for j in range(width):
+        if (i % 2 != 0) and (j % 2 != 0)and (i < height - 1 and j < width - 1):#если ячейка
+            #нечетная по x и y, то это не стена
+            maze[i][j] = cell(i,j,False,False)
+        else:
+            maze[i][j] = cell(i,j,True,False) # иначе это стена
+
+# CalculateMaze создает сам лабиринт
+def CalculateMaze():
+    currentCell = maze[1][1] # делаем текущей верхнюю левую клетку
+    currentCell.visited = True #отмечаем её как посещённую
+    
+    while (UnvisitedCellsCount() > 0): #пока в лабиринте остаются непосещённые клетки
+        
+        if Neighbours(currentCell)[1] > 0:#если у клетки есть непосещённые соседи. (у каждой
+        # клетки со всех четырёх сторон стенки, а соседи - это клетки через одну ячейку влево,
+        # вправо, вверх или вниз
+            stack.append(currentCell) # то заносим эту клетку в стек
+            nextCell = ChooseRandomNeighbour(Neighbours(currentCell)[0]) # выбираем рандомного соседа из возможных
+            DeleteWall(currentCell, nextCell) # Убираем стену между текущей и соседней клеткой 
+            currentCell = nextCell #делаем соседнюю клетку текущей
+            currentCell.visited = True #и отмечаем её посещённой
+        else:
+            currentCell = stack.pop() #если нет соседей, возвращаемся на одну точку назад (метод pop()
+            #удаляет последнее значение в списке и возвращает его)
+
+    #для дальнейшего удобства создаём матрицу, в которой 1 - это проход
+    #а 0 - стена
+    intMaze = []
+    for i in range(mazeHeight):
+        intMaze.append([0]*mazeWidth)
+    for i in range(height):
+        for j in range(width):
+            if (maze[i][j].visited == True):
+                intMaze[i][j] = 1
+    return intMaze
+           
+
+        
+def UnvisitedCellsCount(): #количество непосещенных клеток
+    unvisitedCellsCount = 0
+    for i in range(height):
+        for j in range(width):
+            if (maze[i][j].isWall == False) and (maze[i][j].visited == False):
+                unvisitedCellsCount += 1
+    return unvisitedCellsCount
+
+def Neighbours(cell): #возвращает список [ [список соседей] , количество соседей]
+    i = cell.i
+    j = cell.j
+    neighboursArray = [0,0,0,0]
+    neighboursCount = 0
+    #Проверка на соседа сверху
+    if (i > 1):
+        if (maze[i-2][j].isWall == False) and (maze[i-2][j].visited == False):
+            neighboursArray[0] = maze[i-2][j]
+            neighboursCount+=1
+    #Проверка на соседа снизу
+    if (i < height - 2):
+        if (maze[i+2][j].isWall == False) and (maze[i+2][j].visited == False):
+            neighboursArray[2] = maze[i+2][j]
+            neighboursCount+=1
+    #Проверка на соседа справа
+    if (j < width - 2):
+        if (maze[i][j+2].isWall == False) and (maze[i][j+2].visited == False):
+            neighboursArray[1] = maze[i][j+2]
+            neighboursCount+=1
+    #Проверка на соседа слева
+    if (j > 1):
+        if (maze[i][j-2].isWall == False) and (maze[i][j-2].visited == False):
+            neighboursArray[3] = maze[i][j-2]
+            neighboursCount+=1
+    return [neighboursArray, neighboursCount]
+
+def ChooseRandomNeighbour(array): #возвращает случайного соседа из списка
+    neighbours = []
+    for i in range(4):
+        if array[i] != 0:
+            neighbours.append(array[i])
+    if len(neighbours) > 1:
+        return neighbours[rand.randint(0,len(neighbours) - 1)]
+    else:
+        return neighbours[0]
+
+def DeleteWall(currentCell, nextCell): #удаляет стену между двумя клетками
+    deltaX = nextCell.j - currentCell.j
+    deltaY = nextCell.i - currentCell.i
+    if (deltaX != 0):
+        addX = int(deltaX/mathf.fabs(deltaX))
+    else:
+        addX = 0
+    if (deltaY != 0):
+        addY = int(deltaY/mathf.fabs(deltaY))
+    else:
+        addY = 0
+    maze[currentCell.i + addY][currentCell.j + addX].visited = True
+    maze[currentCell.i + addY][currentCell.j + addX].isWall = False
+    
+################### PYGAME #########################
+import pygame
+from pygame import *
+import time
+
+pygame.init()
+
+WIN_WIDTH = 500
+WIN_HEIGHT = 500
+CELL_WIDTH = 10  #размеры одной клетки
+CELL_HEIGHT = 10
+PLAYER_WIDTH = 10
+PLAYER_HEIGHT = 10
+EXIT_WIDTH = 10
+EXIT_HEIGHT = 10
+
+EXIT_COLOR="#0066FF" #цвет клетки выхода
+PLAYER_COLOR = "#FF0099"#цвет игрока
+WALL_COLOR = "#FFFFFF"#цвет стен
+PATH_COLOR = "#111111"#цвет дороги
+BACKGROUND_COLOR = "#004400"
+
+DISPLAY = (WIN_WIDTH, WIN_HEIGHT)
+screen = pygame.display.set_mode(DISPLAY)
+
+level = CalculateMaze() #создаем матрицу-лабиринт
+#нули в этой матрице - стены, единицы - дорога
+
+#координаты точки выхода
+exitPointX = 0
+exitPointY = 0
+#координаты точки начала лабиринта
+startPointX = 0
+startPointY = 0
+#координаты текущего положения игрока
+playerX = 0
+playerY = 0
+#время в начале и в конце игры
+startTime = 0
+endTime = 0
+
+#StartGame() выбирает случайную точку начала и точку выхода из лабиринта
+def StartGame():
+    global startTime
+    global exitPointX
+    global exitPointY
+    global startPointX
+    global startPointY
+    global playerX
+    global playerY
+    global steps
+    #запоминаем время начала игры
+    startTime = time.time()
+    #выбираем случайные координаты
+    exitPointX = rand.randint(0,len(level[0]) - 1)
+    exitPointY = rand.randint(0,len(level) - 1)
+    while (level[exitPointY][exitPointX] != 1): #убеждаемся что точки входа и начала лежат не в стене, а на дороге
+        exitPointX = rand.randint(0,len(level[0]) - 1)
+        exitPointY = rand.randint(0,len(level) - 1)
+    
+    #выбираем случайные координаты
+    startPointX = rand.randint(0,len(level[0]) - 1)
+    startPointY = rand.randint(0,len(level) - 1)
+    while (level[startPointY][startPointX] != 1): #убеждаемся что точки входа и начала лежат не в стене, а на дороге
+        startPointX = rand.randint(0,len(level[0]) - 1)
+        startPointY = rand.randint(0,len(level) - 1)
+    #Ставим игрока в точку начала
+    playerX = startPointX
+    playerY = startPointY
+
+#Move проверяет может ли игрок пройти в указанном направлении и передвигает его, если это возможно
+def Move(dir):
+    global playerX
+    global playerY
+    global steps
+    
+    if(dir == "up"):
+        if level[playerY-1][playerX] == 1:
+            playerY -= 1
+            steps+=1
+    if (dir == "down"):
+        if level[playerY+1][playerX] == 1:
+            playerY += 1
+            steps+=1
+    if (dir == "left"):
+        if level[playerY][playerX-1] == 1:
+            playerX -= 1
+            steps+=1
+    if (dir == "right"):
+        if level[playerY][playerX+1] == 1:
+            playerX += 1
+            steps+=1
+
+StartGame()#первый раз начинаем игру
+for i in range(height):
+    for j in range(width):
+        maze[i][j].visited = False
+        
+currentCell = maze[playerY][playerX]
+currentCell.visited = True
+wayStack = []
+
+# WayCount() проверяет соседей в уже существующем лабиринте
+# во время самой игры
+def WayCount(cell):
+    i = cell.i
+    j = cell.j
+    neighboursArray = [0,0,0,0]
+    neighboursCount = 0
+    #Проверка на соседа сверху
+    if (i > 1):
+        if (maze[i-1][j].isWall == False) and (maze[i-1][j].visited == False):
+            neighboursArray[0] = maze[i-1][j]
+            neighboursCount+=1
+    #Проверка на соседа снизу
+    if (i < height - 2):
+        if (maze[i+1][j].isWall == False) and (maze[i+1][j].visited == False):
+            neighboursArray[2] = maze[i+1][j]
+            neighboursCount+=1
+    #Проверка на соседа справа
+    if (j < width - 2):
+        if (maze[i][j+1].isWall == False) and (maze[i][j+1].visited == False):
+            neighboursArray[1] = maze[i][j+1]
+            neighboursCount+=1
+    #Проверка на соседа слева
+    if (j > 1):
+        if (maze[i][j-1].isWall == False) and (maze[i][j-1].visited == False):
+            neighboursArray[3] = maze[i][j-1]
+            neighboursCount+=1
+            
+    return [neighboursArray, neighboursCount]
+    
+def main():
+    steps = 0
+    global playerX
+    global playerY
+    global currentCell
+    win = False #win становится True, когда игрок находит выход    
+    pygame.display.set_caption('Лабиринт')
+    bg = Surface((WIN_WIDTH,WIN_HEIGHT))
+    bg.fill(Color(BACKGROUND_COLOR))    
+    while True:
+        screen.blit(bg, (0,0))
+        #Далее реализуем алгоритм поиска выхода
+        if win == False: #т.е. если выход еще не найден
+            if (WayCount (currentCell)[1] > 0):#если текущая клетка имеет непосещённых соседей
+                wayStack.append(currentCell)#добавляем её в стек
+                nextCell = ChooseRandomNeighbour(WayCount (currentCell)[0])#выбираем случайную клетку
+                # из соседних
+                currentCell = nextCell #делаем её текущей
+                currentCell.visited = True #и отмечаем её как посещённую
+                playerX = currentCell.j #передвигаем игрока в новую клетку
+                playerY = currentCell.i #передвигаем игрока в новую клетку
+                steps += 1 # добавляем 1 шаг в счетчик
+                pygame.time.wait(10) # ждем 10 мс, чтобы было видно движение игрока
+            else: # если непосещённых соседей нет
+                currentCell = wayStack.pop() # берем последнюю клетку из стека
+                playerX = currentCell.j #передвигаем игрока в новую клетку
+                playerY = currentCell.i #передвигаем игрока в новую клетку
+                steps += 1 # добавляем 1 шаг в счетчик
+                pygame.time.wait(10) # ждем 10 мс, чтобы было видно движение игрока
+                
+            for e in pygame.event.get():
+                if e.type == QUIT:
+                    pygame.quit()
+                    quit()
+            x = y = 0
+            for row in level: #отрисовываем лабиринт на экране
+                for col in row:
+                    if col == 1:
+                        cell = Surface((CELL_WIDTH,CELL_HEIGHT))
+                        cell.fill(Color(PATH_COLOR))
+                        screen.blit(cell,(x,y))
+                        x += CELL_WIDTH
+                    elif col == 0:
+                        cell = Surface((CELL_WIDTH,CELL_HEIGHT))
+                        cell.fill(Color(WALL_COLOR))
+                        screen.blit(cell,(x,y))
+                        x += CELL_WIDTH
+                y += CELL_HEIGHT
+                x = 0
+
+            #отрисовывем игрока (умножаем на десять, т.к. каждая клетка - 10 пикселей, а позиция игрока прибавляется по одной клетке)
+            player = Surface((PLAYER_WIDTH,PLAYER_HEIGHT))
+            player.fill(Color(PLAYER_COLOR))            
+            screen.blit(player,(10*playerX, 10*playerY))
+
+            #отрисовываем клетку выхода
+            exitCell = Surface((EXIT_WIDTH,EXIT_HEIGHT))
+            exitCell.fill(Color(EXIT_COLOR))
+            screen.blit(exitCell,(10*exitPointX, 10*exitPointY))
+
+            #проверяем, если игрок дошел до выхода, то заканчиваем игру
+            if playerX == exitPointX and playerY == exitPointY:
+                win = True
+                endTime = time.time()                                
+            
+        elif win == True: #если выход найден
+            #Добавляем надпись о конце игры
+            font = pygame.font.SysFont('Arial', 30)
+            textsurface = font.render('Выход найден', False, (0, 0, 0))
+            screen.blit(textsurface,(50,150))
+
+            #Добавляем информацию о количестве шагов
+            font = pygame.font.SysFont('Arial', 20)
+            stepsText = "Шагов сделано: " + str(steps)
+            textsurface = font.render(stepsText, False, (0, 0, 0))
+            screen.blit(textsurface,(150,200))
+            
+            #Добавляем информацию о затраченном времени
+            font = pygame.font.SysFont('Arial', 20)
+            deltaTime = endTime - startTime
+            timeText = "Затраченное время: " + str(int(deltaTime)) + " c"
+            textsurface = font.render(timeText, False, (0, 0, 0))
+            screen.blit(textsurface,(150,250))
+            
+            for e in pygame.event.get(): 
+                if e.type == QUIT:
+                    pygame.quit()
+                    quit()
+        pygame.display.update()
+if __name__ == "__main__":
+    main()
